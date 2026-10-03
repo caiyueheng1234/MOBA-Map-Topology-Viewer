@@ -1814,22 +1814,27 @@ ${Object.entries(counts).map(([k,v])=>`${k}: ${v}`).join(' · ')}`);
     window.addEventListener('resize', render);
   }
 
-  function init() {
-    populateObjectTypeSelects();
-    initStrategy();
-    populateVisualRendererSelect();
-    bindTabs();
-    bindInputs();
-    setActiveTab('ioTab');
-    state.viewZoom = 1;
-    syncDraftToUI();
-    updateEditPanels();
-    updateCounts();
-    updateMeshUI();
-    validateVisualSourceFromUI();
-    updateVisualizationUI();
-    render();
-  }
+function init() {
+  populateObjectTypeSelects();
+  initStrategy();
+  populateVisualRendererSelect();
+  bindTabs();
+  bindInputs();
+  setActiveTab('ioTab');
+  state.viewZoom = 1;
+  syncDraftToUI();
+  updateEditPanels();
+  updateCounts();
+  updateMeshUI();
+  validateVisualSourceFromUI();
+  updateVisualizationUI();
+  render();
 
-  init();
+  loadJsonUrl('./map_draft.json').catch(err => {
+    console.error('Failed to load default map:', err);
+    setStatus(`Failed to load default map: ${err.message}`);
+  });
+}
+
+init();
 })();
