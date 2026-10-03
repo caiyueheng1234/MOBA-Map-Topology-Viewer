@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MOBA Map Editor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <header class="sidebar-header">
+      <h1>MOBA Map Editor</h1>
+      <p class="muted">Scene coordinates: x/y ∈ [-128, 128]; the origin is at the map center (0,0), and the canvas y-axis points downward.</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Control panel tabs">
+      <button class="tab active" data-tab="ioTab">Import / Save</button>
+      <button class="tab" data-tab="editTab">Edit</button>
+      <button class="tab" data-tab="bgTab">Background</button>
+      <button class="tab" data-tab="meshTab">Mesh</button>
+      <button class="tab" data-tab="visualTab">Visualization</button>
+      <button class="tab" data-tab="strategyTab">Strategy / Objects</button>
+      <button class="tab" data-tab="displayTab">Display</button>
+    </div>
+
+    <div class="tab-panels">
+      <section id="ioTab" class="tab-panel active">
+        <h2>Map JSON</h2>
+        <label class="file-row">Import JSON
+          <input id="jsonFile" type="file" accept="application/json,.json" />
+        </label>
+        <div class="button-row">
+          <button id="loadDraftBtn">Load built-in map_draft.json</button>
+          <button id="exportJsonBtn">Export Current JSON</button>
+        </div>
+        <div class="subsection">
+          <h3>Save to Project Folder</h3>
+          <label>Map Name
+            <input id="saveMapName" type="text" value="map_draft" />
+          </label>
+          <div class="button-row">
+            <button id="chooseSaveRootBtn">Choose Save Root</button>
+            <button id="saveToFolderBtn" class="primary">Save to saves/ (overwrite allowed)</button>
+          </div>
+          <div id="saveFolderStatus" class="status compact">No save root selected. The browser will request folder write permission the first time you save.</div>
+        </div>
+        <div id="status" class="status">No JSON loaded</div>
+        <div class="subsection">
+          <h3>Object Statistics</h3>
+          <div id="objectCounts" class="kv-list"></div>
+        </div>
+      </section>
+
+      <section id="editTab" class="tab-panel">
+        <h2>Edit</h2>
+        <div class="button-row sticky-row">
+          <button id="toggleEditBtn" class="primary">Enable Edit Mode</button>
+          <button id="toggleAddBtn" disabled>Add</button>
+        </div>
+        <div id="editSummary" class="status compact">Current mode: disabled</div>
+
+        <fieldset id="editFieldset" disabled>
+          <div class="subsection">
+            <h3>Selection Status</h3>
+            <div id="selectionInfo" class="status compact">No object selected.</div>
+          </div>
+
+          <div id="selectModePanel">
+            <div class="subsection">
+              <h3>Edit Existing Object</h3>
+              <div class="two-col narrow-gap">
+                <label>ID
+                  <input id="editObjectId" type="text" />
+                </label>
+                <label>Type
+                  <select id="editObjectType">
+                    <option value="impassable_terrain">impassable_terrain</option>
+                    <option value="jungle_spot">jungle_spot</option>
+                    <option value="tower">tower</option>
+                    <option value="grass">grass</option>
+                  </select>
+                </label>
+              </div>
+              <div id="editGroupInfo" class="muted small-gap">Current object is not grouped.</div>
+              <label class="check"><input id="adjustGrouped" type="checkbox" /> Adjust Grouped Objects</label>
+              <div class="button-row">
+                <button id="dissolveGroupBtn">Dissolve Group</button>
+                <button id="reloadSelectedBtn">Reload Selected Object from Workspace</button>
+                <button id="deleteSelectedBtn" class="danger">Delete Selected Object</button>
+              </div>
+            </div>
+
+            <div id="editCircleFields" class="subsection hidden">
+              <h3>Center / Radius</h3>
+              <div class="three-col">
+                <label>X
+                  <input id="editPosX" type="number" step="0.1" />
+                </label>
+                <label>Y
+                  <input id="editPosY" type="number" step="0.1" />
+                </label>
+                <label>Radius
+                  <input id="editRadius" type="number" step="0.1" min="0.1" />
+                </label>
+              </div>
+            </div>
+
+            <div id="editPolygonFields" class="subsection hidden">
+              <h3>Polygon Control Points</h3>
+              <p class="hint">The first vertex always uses absolute coordinates. Later vertices may use absolute coordinates or Δx/Δy offsets relative to the previous vertex. A new vertex can be inserted between the current and next point from each row.</p>
+              <div id="editPointsList" class="points-list"></div>
+              <button id="addEditPointBtn">Append Control Point</button>
+            </div>
+          </div>
+
+          <div id="addModePanel" class="hidden">
+            <div class="subsection">
+              <h3>Add New Object</h3>
+              <div class="two-col narrow-gap">
+                <label>Base Name
+                  <input id="addBaseId" type="text" value="item" />
+                </label>
+                <label>Type
+                  <select id="addObjectType">
+                    <option value="impassable_terrain">impassable_terrain</option>
+                    <option value="jungle_spot">jungle_spot</option>
+                    <option value="tower">tower</option>
+                    <option value="grass">grass</option>
+                  </select>
+                </label>
+              </div>
+              <label class="check"><input id="addMirrorSymmetry" type="checkbox" /> Mirror Symmetry (across x = y)</label>
+              <label class="check"><input id="addCenterSymmetry" type="checkbox" /> Point Symmetry (about origin 0,0)</label>
+            </div>
+
+            <div id="addCircleFields" class="subsection">
+              <h3>Center / Radius</h3>
+              <div class="three-col">
+                <label>X
+                  <input id="addPosX" type="number" step="0.1" value="0" />
+                </label>
+                <label>Y
+                  <input id="addPosY" type="number" step="0.1" value="0" />
+                </label>
+                <label>Radius
+                  <input id="addRadius" type="number" step="0.1" min="0.1" value="8" />
+                </label>
+              </div>
+            </div>
+
+            <div id="addPolygonFields" class="subsection hidden">
+              <h3>Polygon Control Points</h3>
+              <p class="hint">The first vertex always uses absolute coordinates. Later vertices can use Δx/Δy offsets relative to the previous vertex.</p>
+              <div id="addPointsList" class="points-list"></div>
+              <button id="addAddPointBtn">Append Control Point</button>
+            </div>
+          </div>
+
+          <div id="editFormHint" class="status compact">Current definition: waiting for input.</div>
+          <div class="button-row footer-actions">
+            <button id="applyEditBtn" class="primary">Apply</button>
+          </div>
+        </fieldset>
+      </section>
+
+      <section id="bgTab" class="tab-panel">
+        <h2>Background</h2>
+        <label class="file-row">Import Image
+          <input id="imageFile" type="file" accept="image/*" />
+        </label>
+        <div class="button-row">
+          <button id="loadReferenceBtn">Load built-in reference.png</button>
+          <button id="clearImageBtn">Remove Background</button>
+        </div>
+        <label>Opacity <span id="opacityValue"></span>
+          <input id="opacity" type="range" min="0" max="1" step="0.01" value="0.45" />
+        </label>
+        <label>Rotation (°)
+          <input id="rotation" type="number" step="0.1" value="0" />
+        </label>
+        <div class="two-col">
+          <label>Center Offset X
+            <input id="offsetX" type="number" step="0.1" value="0" />
+          </label>
+          <label>Center Offset Y
+            <input id="offsetY" type="number" step="0.1" value="0" />
+          </label>
+        </div>
+        <label>Uniform Scale
+          <input id="uniformScale" type="number" min="0.001" step="0.001" value="1" />
+        </label>
+        <div class="subhead">Pre-Rotation Axis Scale (image x/y axes)</div>
+        <div class="two-col">
+          <label>X
+            <input id="preScaleX" type="number" min="0.001" step="0.001" value="1" />
+          </label>
+          <label>Y
+            <input id="preScaleY" type="number" min="0.001" step="0.001" value="1" />
+          </label>
+        </div>
+        <div class="subhead">Post-Rotation Axis Scale (scene x/y axes)</div>
+        <div class="two-col">
+          <label>X
+            <input id="postScaleX" type="number" min="0.001" step="0.001" value="1" />
+          </label>
+          <label>Y
+            <input id="postScaleY" type="number" min="0.001" step="0.001" value="1" />
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="fitImageBtn">Fit Image to Scene</button>
+          <button id="referencePresetBtn">Apply Reference Calibration</button>
+          <button id="resetImageTransformBtn">Reset Transform</button>
+        </div>
+        <p class="hint">Transform order: center → uniform/pre-rotation axis scale → rotate → post-rotation axis scale → center offset.</p>
+      </section>
+
+
+      <section id="meshTab" class="tab-panel">
+        <h2>Triangular Mesh / Pathfinding Mesh</h2>
+        <p class="hint">The mesh is stored separately from map objects and is generated only after clicking “Generate Mesh”. tower and impassable_terrain are impassable; grass remains passable but participates in boundary splitting; jungle_spot is currently ignored. Overlap priority is defined by the type registry.</p>
+        <div class="button-row sticky-row">
+          <button id="generateMeshBtn" class="primary">Generate Mesh</button>
+          <button id="clearMeshBtn">Clear Mesh</button>
+        </div>
+        <div id="meshStatus" class="status compact">No mesh generated.</div>
+
+        <div class="subsection">
+          <h3>Quality Parameters</h3>
+          <div class="two-col">
+            <label>Initial Sampling Spacing
+              <input id="meshSpacing" type="number" min="2" max="64" step="1" value="20" />
+            </label>
+            <label>Refinement Passes
+              <input id="meshRefinePasses" type="number" min="0" max="8" step="1" value="5" />
+            </label>
+          </div>
+          <div class="two-col">
+            <label>Target Minimum Angle (°)
+              <input id="meshMinAngle" type="number" min="1" max="40" step="1" value="18" />
+            </label>
+            <label>Maximum Aspect Ratio
+              <input id="meshMaxAspect" type="number" min="1.5" max="50" step="0.5" value="6" />
+            </label>
+          </div>
+          <div class="two-col">
+            <label>Straight-Edge Subdivision Spacing
+              <input id="meshBoundarySpacing" type="number" min="1" max="64" step="0.5" value="8" />
+            </label>
+            <label>Maximum Cell Count
+              <input id="meshMaxCells" type="number" min="500" max="5000" step="100" value="5000" />
+            </label>
+          </div>
+          <p class="hint">The mesh generator first inserts vertices along overly long constrained straight edges, then performs constrained Delaunay triangulation and refines high-aspect-ratio or small-angle triangles using longest-edge bisection and circumcenter/Steiner points. The current maximum is 5000 cells; refinement stops when the budget is reached. A small number of thin triangles forced by acute source geometry may remain.</p>
+        </div>
+
+        <div class="subsection">
+          <h3>MeshDisplay</h3>
+          <label class="check"><input id="showMesh" type="checkbox" checked /> DisplayMesh</label>
+          <label class="check"><input id="showMeshFill" type="checkbox" checked /> Show Cell-Type Fill</label>
+          <label class="check"><input id="showMeshEdges" type="checkbox" checked /> Show Triangle Edges</label>
+          <label class="check"><input id="showStaleMesh" type="checkbox" /> Show Stale Mesh</label>
+          <label>Fill Opacity <span id="meshOpacityValue">0.34</span>
+            <input id="meshOpacity" type="range" min="0" max="0.9" step="0.01" value="0.34" />
+          </label>
+          <div class="mesh-legend">
+            <span><i class="legend passable"></i>passable</span>
+            <span><i class="legend terrain"></i>impassable_terrain</span>
+            <span><i class="legend tower"></i>tower</span>
+            <span><i class="legend grass"></i>grass</span>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Statistics / Cell Inspector</h3>
+          <div id="meshStats" class="kv-list"><div>vertices</div><div>—</div><div>cells</div><div>—</div></div>
+          <div id="meshCellInfo" class="status compact">Move the pointer over a mesh cell to inspect its type, adjacency, and quality information.</div>
+        </div>
+
+        <div class="subsection">
+          <h3>Extension API</h3>
+          <p class="hint"><code>MapEditorTypes.registerObjectType(...)</code>  registers new map object types;<code>registerCellAttribute(...)</code>  registers new cell-state fields. See README / FORMAT for the API.</p>
+        </div>
+      </section>
+
+      <section id="strategyTab" class="tab-panel">
+<h2>Strategic Topology</h2>
+<p class="hint"><a href="topology_wiki.html" target="_blank" rel="noopener">Topology wiki — meanings, formulas and usage ↗</a></p>
+<p class="hint">Load a map and generate a mesh first. Topology overlays are independent of the distance field; modifying strategic objects does not regenerate the mesh.</p>
+<label class="check"><input id="topoGraph" type="checkbox"> Topology graph</label>
+<label class="check"><input id="topoRegions" type="checkbox"> Connected regions</label>
+<label class="check"><input id="topoPoints" type="checkbox" checked> Critical points</label>
+<label class="check"><input id="gameVisible" type="checkbox" checked> Game objects</label>
+<label class="check"><input id="gameRings" type="checkbox" checked> Influence radius</label>
+<label class="check"><input id="topoLabels" type="checkbox"> Labels / scores</label>
+<p class="hint">Critical points: orange circle = choke; cyan square = junction; purple diamond = articulation; gray triangle = dead end. Larger points = higher strategic score. Gold edges = graph bridges.</p>
+<div id="topoStats" class="status compact">Generate a mesh to analyze topology.</div>
+<h3>Game object editor</h3>
+<label>Tool<select id="gameTool"><option value="select">Select</option><option value="place">Game Object — click map to place</option></select></label>
+<label>Existing objects<select id="gameList"><option value="">New object</option></select></label>
+<label>Name<input id="gameName" value="Objective"></label>
+<label>Type<select id="gameType"></select></label>
+<label>Priority (0–100)<input id="gamePriority" type="number" min="0" max="100" value="50"></label>
+<label>Influence radius<input id="gameRadius" type="number" min="0" value="20"></label>
+<div class="two-col"><label>X<input id="gameX" type="number" min="-128" max="128" step="0.1" value="0"></label><label>Y<input id="gameY" type="number" min="-128" max="128" step="0.1" value="0"></label></div>
+<label class="check"><input id="gameEnabled" type="checkbox" checked> Enabled</label>
+<div class="button-row"><button id="gameSave">Save</button><button id="gameDelete">Delete</button></div>
+<div id="gameStatus" class="status compact">Choose the placement tool, click the map, then Save.</div>
+</section>
+<section id="visualTab" class="tab-panel">
+        <h2>Visualization / Visualization</h2>
+<p class="hint"><a href="topology_wiki.html" target="_blank" rel="noopener">Topology wiki — meanings, formulas and usage ↗</a></p>
+        <p class="hint">Visualizations are derived from the mesh and do not modify the map or mesh. The built-in “Reachable Distance Field” computes shortest-path distance from a source over the passable-cell adjacency graph and colors all reachable areas using a red-to-blue continuous legend.</p>
+
+        <div class="subsection">
+          <h3>Renderer</h3>
+          <label>VisualizationType
+            <select id="visualRendererSelect"></select>
+          </label>
+          <div id="visualRendererDescription" class="status compact">—</div>
+        </div>
+
+        <div class="subsection">
+          <h3>Distance-Field Source</h3>
+          <div class="two-col">
+            <label>X
+              <input id="visualSourceX" type="number" min="-128" max="128" step="0.1" value="0" />
+            </label>
+            <label>Y
+              <input id="visualSourceY" type="number" min="-128" max="128" step="0.1" value="0" />
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="visualPickBtn" class="primary">Canvas Pick: Enabled</button>
+            <button id="visualRenderBtn" class="primary">Render</button>
+            <button id="visualClearBtn">Clear Visualization</button>
+          </div>
+          <div id="visualSourceStatus" class="status compact">A valid mesh is required before the source can be validated.</div>
+          <p class="hint">On this tab, click the map to set the source. A valid source is shown as a red ring with a red center point. Changing the source does not automatically recompute the distance field; click “Render” again.</p>
+        </div>
+
+        <div class="subsection">
+          <h3>Coloring</h3>
+          <label>Overlay Opacity <span id="visualOpacityValue">0.62</span>
+            <input id="visualOpacity" type="range" min="0.1" max="0.95" step="0.01" value="0.62" />
+          </label>
+          <label class="check"><input id="visualShowMeshEdges" type="checkbox" /> Overlay triangle mesh edges on the distance field</label>
+          <div class="distance-legend" aria-label="Distance-field legend">
+            <div class="distance-gradient"></div>
+            <div class="distance-legend-labels"><span id="visualLegendMin">Near / 0</span><span id="visualLegendMax">Far / —</span></div>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Results</h3>
+          <div id="visualStats" class="kv-list"><div>Reachable Cells</div><div>—</div><div>Maximum Distance</div><div>—</div></div>
+          <div id="visualCellInfo" class="status compact">After rendering, move the pointer over a cell to inspect its distance value.</div>
+        </div>
+
+        <div class="subsection">
+          <h3>Extension API</h3>
+          <p class="hint"><code>MapVisualizers.registerRenderer(...)</code>  registers new mesh visualizations. Renderers compute cell scalars/states, while the main editor handles the shared legend, opacity, cell drawing, and interaction. See README / FORMAT for the API.</p>
+        </div>
+      </section>
+
+      <section id="displayTab" class="tab-panel">
+        <h2>Display</h2>
+        <label class="check"><input id="showMinorGrid" type="checkbox" checked /> 64×64 Minor Grid</label>
+        <label class="check"><input id="showMajorGrid" type="checkbox" checked /> 16/32/48 Major Lines</label>
+        <label class="check"><input id="showLabels" type="checkbox" /> Object IDs</label>
+        <label class="check"><input id="showBackground" type="checkbox" checked /> Background</label>
+        <label class="check"><input id="showTerrain" type="checkbox" checked /> impassable_terrain</label>
+        <label class="check"><input id="showJungle" type="checkbox" checked /> jungle_spot</label>
+        <label class="check"><input id="showTowers" type="checkbox" checked /> tower</label>
+        <label class="check"><input id="showGrass" type="checkbox" checked /> grass</label>
+        <div class="subsection">
+          <h3>Coordinate Inspector</h3>
+          <div id="cursorReadout" class="status compact">x: —, y: —</div>
+          <p class="hint">Move the pointer over the canvas to read [-128,128] scene coordinates with the map center as the origin.</p>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <div class="canvas-toolbar">
+      <div class="button-row">
+        <button id="zoomOutBtn">－</button>
+        <button id="zoomInBtn">＋</button>
+        <button id="zoomFitBtn">Fit</button>
+      </div>
+      <div class="zoom-readout">Zoom: <span id="zoomReadout">100%</span></div>
+    </div>
+    <div class="canvas-area">
+      <canvas id="mapCanvas"></canvas>
+    </div>
+  </main>
+
+  <script src="object_types.js"></script>
+  <script src="mesh_engine.js"></script>
+  <script src="visualization.js"></script>
+  <script src="game_object_manager.js"></script>
+  <script src="topology_engine.js"></script>
+  <script src="strategic_topology.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>
